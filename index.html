@@ -52,6 +52,7 @@ h1{text-align:center;margin-bottom:16px;color:#60a5fa;}
 }
 .cal-day .day-pnl.profit{color:#00ff88;}
 .cal-day .day-pnl.loss{color:#ff4c4c;}
+.cal-day .day-pnl.breakeven{color:#ffdd44;}
 
 /* Stats Panel */
 .stats-box{background:#1f222b;border-radius:14px;padding:16px;}
@@ -73,6 +74,9 @@ h1{text-align:center;margin-bottom:16px;color:#60a5fa;}
 .btn-save{background:#16a34a;border:none;color:white;padding:10px 14px;border-radius:6px;cursor:pointer;margin-right:8px;}
 .btn-del{background:#dc2626;border:none;color:white;padding:10px 14px;border-radius:6px;cursor:pointer;}
 
+.image-preview-area{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;}
+.image-preview-area img{max-width:120px;border-radius:6px;border:1px solid #444;}
+
 /* PDF print hidden */
 @media print{
   body{background:white;color:black;}
@@ -92,6 +96,7 @@ h1{text-align:center;margin-bottom:16px;color:#60a5fa;}
   <div class="stat-row"><span>Win Rate</span><span id="statWinRate">0%</span></div>
   <div class="stat-row"><span>Win Days</span><span id="statWinDays">0</span></div>
   <div class="stat-row"><span>Loss Days</span><span id="statLossDays">0</span></div>
+  <div class="stat-row"><span>Breakeven Days</span><span id="statBeDays">0</span></div>
 </div>
 
 <div class="container">
@@ -123,11 +128,17 @@ h1{text-align:center;margin-bottom:16px;color:#60a5fa;}
           <button class="tag-btn" data-val="Short">Short</button>
           <button class="tag-btn" data-val="Win">Win</button>
           <button class="tag-btn" data-val="Loss">Loss</button>
+          <button class="tag-btn" data-val="Breakeven">Breakeven</button>
         </div>
       </div>
       <div class="form-group">
         <label>Notes</label>
-        <textarea id="notesInput" rows="4" placeholder="Trade notes..."></textarea>
+        <textarea id="notesInput" rows="3" placeholder="Trade notes..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Upload Screenshot (photo)</label>
+        <input type="file" id="imgUpload" accept="image/*" multiple>
+        <div class="image-preview-area" id="previewBox"></div>
       </div>
       <div>
         <button class="btn-save" id="saveEntry">Save Entry</button>
@@ -145,6 +156,7 @@ let currentYear=new Date().getFullYear();
 let currentMonth=new Date().getMonth();
 let selectedDate=null;
 let activeTags=[];
+let imageBase64List=[];
 
 function getAllRecords(){
   const raw=localStorage.getItem(STORAGE_KEY);
@@ -176,14 +188,15 @@ function renderCalendar(){
   const todayObj=new Date();
   for(let d=1;d<=totalDays;d++){
     const isToday = (todayObj.getFullYear()===currentYear && todayObj.getMonth()===currentMonth && todayObj.getDate()===d);
-    const isCurrentMonth=true;
     const dayRecord = getDayRecord(currentYear,currentMonth,d);
     let pnlText="-";
     let pnlClass="";
     if(dayRecord.length>0){
       const sumPnl = dayRecord.reduce((s,r)=>s+Number(r.pnl),0);
       pnlText = (sumPnl>0 ? "+":"") + sumPnl;
-      pnlClass = sumPnl>0 ? "profit" : "loss";
+      if(sumPnl>0) pnlClass="profit";
+      else if(sumPnl<0) pnlClass="loss";
+      else pnlClass="breakeven";
     }
 
     grid.innerHTML += `
@@ -210,6 +223,9 @@ function renderCalendar(){
 
 function fillFormByDate(){
   const recs=getDayRecord(selectedDate.y,selectedDate.m,selectedDate.d);
+  const previewBox=document.getElementById("previewBox");
+  previewBox.innerHTML="";
+  imageBase64List=[];
   if(recs.length>0){
     const r=recs[0];
     document.getElementById("pnlInput").value=r.pnl;
@@ -218,6 +234,14 @@ function fillFormByDate(){
     document.querySelectorAll(".tag-btn").forEach(b=>{
       b.classList.toggle("active",activeTags.includes(b.dataset.val));
     })
+    if(r.images && Array.isArray(r.images)){
+      imageBase64List = [...r.images];
+      r.images.forEach(b64=>{
+        const img=document.createElement("img");
+        img.src=b64;
+        previewBox.appendChild(img);
+      })
+    }
   }else{
     clearForm();
   }
@@ -226,7 +250,26 @@ function clearForm(){
   document.getElementById("pnlInput").value="";
   document.getElementById("notesInput").value="";
   activeTags=[];
+  imageBase64List=[];
+  document.getElementById("previewBox").innerHTML="";
+  document.getElementById("imgUpload").value=null;
   document.querySelectorAll(".tag-btn").forEach(b=>b.classList.remove("active"));
+}
+
+// image upload handler
+document.getElementById("imgUpload").onchange=function(e){
+  const files=e.target.files;
+  const previewBox=document.getElementById("previewBox");
+  for(let f of files){
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      imageBase64List.push(ev.target.result);
+      const img=document.createElement("img");
+      img.src=ev.target.result;
+      previewBox.appendChild(img);
+    }
+    reader.readAsDataURL(f);
+  }
 }
 
 // save entry
@@ -243,7 +286,8 @@ document.getElementById("saveEntry").onclick=()=>{
     d:selectedDate.d,
     pnl:pnlVal,
     tags:[...activeTags],
-    notes:notesVal
+    notes:notesVal,
+    images:[...imageBase64List]
   });
   saveAllRecords(all);
   renderCalendar();
@@ -292,14 +336,15 @@ function updateStats(){
   const winRate = totalTrades>0 ? ((winTrades/totalTrades)*100).toFixed(1):0;
 
   // unique days
-  const daySet=new Set();
   const winDaySet=new Set();
   const lossDaySet=new Set();
+  const beDaySet=new Set();
   all.forEach(r=>{
     const key=`${r.y}-${r.m}-${r.d}`;
-    daySet.add(key);
-    if(Number(r.pnl)>0) winDaySet.add(key);
-    if(Number(r.pnl)<0) lossDaySet.add(key);
+    const p=Number(r.pnl);
+    if(p>0) winDaySet.add(key);
+    else if(p<0) lossDaySet.add(key);
+    else beDaySet.add(key);
   })
 
   document.getElementById("statTotalTrades").innerText=totalTrades;
@@ -307,6 +352,7 @@ function updateStats(){
   document.getElementById("statWinRate").innerText=winRate+"%";
   document.getElementById("statWinDays").innerText=winDaySet.size;
   document.getElementById("statLossDays").innerText=lossDaySet.size;
+  document.getElementById("statBeDays").innerText=beDaySet.size;
 }
 
 // PDF export month
@@ -322,6 +368,11 @@ document.getElementById("exportMonthPdf").onclick=async ()=>{
     if(dr.length>0){
       dr.forEach(r=>{
         div.innerHTML += `<div>P&L: ${r.pnl}</div><div>Tags: ${(r.tags||[]).join(", ")}</div><div>Notes: ${r.notes||""}</div>`;
+        if(r.images&&r.images.length>0){
+          r.images.forEach(b64=>{
+            div.innerHTML+=`<div><img src="${b64}" style="max-width:220px;"></div>`
+          })
+        }
       })
     }else{
       div.innerHTML += `<div>No trade</div>`;
