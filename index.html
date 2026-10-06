@@ -3,68 +3,83 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trading Journal - Calendar P&L Stats</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<title>Trading Journal – Calendar P&L Stats</title>
+<script src="https://cdn.jsdelivr.net/npm/ajax/libs/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ajax/libs/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui, sans-serif}
-body{background:#12141a;color:#e5e7eb;padding:16px;max-width:1200px;margin:0 auto}
-h1{text-align:center;margin-bottom:16px;color:#60a5fa;font-size:24px}
-.container{display:grid;grid-template-columns:1fr;gap:20px}
-@media(min-width:820px){.container{grid-template-columns:60% 38%}}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui, -apple-system, sans-serif;}
+body{background:#12141a;color:#e5e7eb;padding:16px;max-width:1200px;margin:0 auto;}
+h1{text-align:center;margin-bottom:16px;color:#60a5fa;}
+.container{display:grid;grid-template-columns:1fr;gap:20px;}
+@media(min-width:820px){.container{grid-template-columns:1fr 1fr;}}
 
 /* Calendar */
-.calendar-card{background:#1f222b;border-radius:14px;padding:18px}
-.cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px}
-.cal-header button{background:#2d313d;border:none;color:#fff;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px}
-.cal-header button:hover{background:#3b4152}
-.cal-header .btn-export-pdf{background:#2563eb}
-.cal-month{font-size:18px;font-weight:600}
-.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px}
-.cal-weekdays div{text-align:center;font-size:13px;color:#9ca3af;padding:6px}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.cal-day{aspect-ratio:1/1;background:#272b37;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:14px;padding:4px;position:relative}
-.cal-day:hover{background:#333948}
-.cal-day.today{border:1px solid #60a5fa}
-.cal-day.empty{background:transparent;cursor:default}
-.cal-day.win-day::after{content:"";width:7px;height:7px;background:#22c55e;border-radius:50%;position:absolute;bottom:5px}
-.cal-day.loss-day::after{content:"";width:7px;height:7px;background:#ef4444;border-radius:50%;position:absolute;bottom:5px}
+.calendar-card{background:#111322;border-radius:14px;padding:16px;}
+.cal-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.cal-header button{background:#2d313d;border:none;color:#e5e7eb;padding:8px 12px;border-radius:6px;cursor:pointer;}
+.cal-header button:hover{background:#3b4152;}
+.cal-header .btn-export-pdf{background:#2563eb;}
+.cal-month{font-size:20px;font-weight:bold;color:#fff;flex-grow:1;}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:8px;}
+.cal-weekdays div{text-align:center;color:#999;font-size:13px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
+
+.cal-day{
+  background:#1b1e36;
+  border-radius:10px;
+  min-height:75px;
+  aspect-ratio:none;
+  padding:8px 4px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  text-align:center;
+  cursor:pointer;
+}
+.cal-day:hover{background:#2c304e;}
+.cal-day.today{border:1px solid #60a5fa;}
+.cal-day.empty{background:#0f111f;opacity:0.4;cursor:default;}
+
+.cal-day .day-num{
+  font-size:16px;
+  font-weight:bold;
+  color:#ffffff;
+  margin-bottom:4px;
+}
+.cal-day .day-pnl{
+  font-size:13px;
+  font-weight:600;
+}
+.cal-day .day-pnl.profit{color:#00ff88;}
+.cal-day .day-pnl.loss{color:#ff4c4c;}
 
 /* Stats Panel */
-.stats-box{background:#1f222b;border-radius:14px;padding:16px;margin-bottom:16px}
-.stats-box h3{margin-bottom:10px;color:#cbd5e1;font-size:16px}
-.stat-row{display:flex;justify-content:space-between;padding:6px 0;font-size:14px;border-bottom:1px solid #2d313d}
-.stat-row:last-child{border:none}
-.green-text{color:#22c55e}
-.red-text{color:#ef4444}
+.stats-box{background:#1f222b;border-radius:14px;padding:16px;}
+.stats-box h3{margin-bottom:10px;color:#cbd5e1;}
+.stat-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2d313d;}
 
-/* Editor Panel */
-.panel{background:#1f222b;border-radius:14px;padding:18px}
-.panel h3{margin-bottom:10px;color:#cbd5e1}
-#selectedDate{color:#60a5fa;margin-bottom:10px;font-size:15px}
-.form-group{margin:10px 0}
-label{display:block;font-size:13px;color:#b4b9c3;margin-bottom:4px}
-input[type="number"]{width:100%;background:#272b37;border:1px solid #373c4b;color:#e5e7eb;border-radius:8px;padding:10px;font-size:14px}
-textarea{width:100%;min-height:130px;background:#272b37;border:1px solid #373c4b;color:#e5e7eb;border-radius:10px;padding:12px;font-size:14px;resize:vertical;margin-top:8px}
+/* Form Panel */
+.panel{background:#1f222b;border-radius:14px;padding:16px;}
+.panel h3{margin-bottom:10px;color:#cbd5e1;}
+#selectedDate{margin-bottom:12px;color:#94a3b8;}
+.form-group{margin-bottom:12px;}
+.form-group label{display:block;margin-bottom:4px;font-size:14px;}
+.form-group input,.form-group textarea{
+  width:100%;padding:10px;border-radius:6px;border:1px solid #374151;background:#111322;color:#e5e7eb;
+}
+.tag-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.tag-btn{padding:6px 10px;border-radius:6px;border:none;background:#2d313d;color:#e5e7eb;cursor:pointer;}
+.tag-btn.active{background:#2563eb;}
+.btn-save{background:#16a34a;border:none;color:white;padding:10px 14px;border-radius:6px;cursor:pointer;margin-right:8px;}
+.btn-del{background:#dc2626;border:none;color:white;padding:10px 14px;border-radius:6px;cursor:pointer;}
 
-.tag-group{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
-.tag-btn{padding:6px 11px;border-radius:6px;border:1px solid #444958;background:#272b37;color:#ddd;cursor:pointer;font-size:13px}
-.tag-btn.active{background:#3b82f6;color:#fff;border-color:#3b82f6}
-
-input[type="file"]{margin:8px 0;color:#ccc;font-size:13px}
-.img-preview{display:grid;grid-template-columns:repeat(auto-fill,minmax(85px,1fr));gap:8px;margin:12px 0}
-.img-preview img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;border:1px solid #444}
-.btn-row{display:flex;gap:10px;margin-top:14px}
-button{padding:10px 16px;border-radius:8px;border:none;font-size:14px;cursor:pointer}
-.btn-save{background:#22c55e;color:#000;font-weight:500}
-.btn-del{background:#ef4444;color:#fff}
-.empty-state{color:#9ca3af;text-align:center;padding:35px}
-#entryForm{display:none}
-
-/* PDF打印临时容器，隐藏页面 */
-#pdf-month-data{position:absolute;left:-9999px;width:700px;background:#fff;color:#111;padding:24px}
-#pdf-month-data h2{margin-bottom:12px}
-.pdf-day-item{border-bottom:1px solid #aaa;padding:10px 0}
+/* PDF print hidden */
+@media print{
+  body{background:white;color:black;}
+  .panel,.cal-header button{display:none !important;}
+}
+#pdf-month-data{display:none;}
+.pdf-day-item{border-bottom:1px solid #aaa;padding:10px 0;}
 </style>
 </head>
 <body>
@@ -72,8 +87,8 @@ button{padding:10px 16px;border-radius:8px;border:none;font-size:14px;cursor:poi
 
 <div class="stats-box">
   <h3>📊 Overall Statistics</h3>
-  <div class="stat-row"><span>Total Trades</span><span id="statTotal">0</span></div>
-  <div class="stat-row"><span>Total P&L</span><span id="statPnl">0.00</span></div>
+  <div class="stat-row"><span>Total Trades</span><span id="statTotalTrades">0</span></div>
+  <div class="stat-row"><span>Total P&L</span><span id="statTotalPnl">0</span></div>
   <div class="stat-row"><span>Win Rate</span><span id="statWinRate">0%</span></div>
   <div class="stat-row"><span>Win Days</span><span id="statWinDays">0</span></div>
   <div class="stat-row"><span>Loss Days</span><span id="statLossDays">0</span></div>
@@ -96,13 +111,11 @@ button{padding:10px 16px;border-radius:8px;border:none;font-size:14px;cursor:poi
   <div class="panel">
     <h3>Trade Entry</h3>
     <div id="selectedDate">Pick date on calendar</div>
-
     <div id="entryForm">
       <div class="form-group">
         <label>P&L (Profit positive / Loss negative)</label>
-        <input type="number" step="0.01" id="pnlInput" placeholder="e.g. 120.50 or -75.20">
+        <input type="number" step="0.01" id="pnlInput" placeholder="e.g. 500 or -120">
       </div>
-
       <div class="form-group">
         <label>Tags (click to select multiple)</label>
         <div class="tag-group">
@@ -110,248 +123,212 @@ button{padding:10px 16px;border-radius:8px;border:none;font-size:14px;cursor:poi
           <button class="tag-btn" data-val="Short">Short</button>
           <button class="tag-btn" data-val="Win">Win</button>
           <button class="tag-btn" data-val="Loss">Loss</button>
-          <button class="tag-btn" data-val="Break‑even">Break‑even</button>
         </div>
       </div>
-
       <div class="form-group">
         <label>Notes</label>
-        <textarea id="noteInput" placeholder="Setup, entry/exit reason, risk management, lesson..."></textarea>
+        <textarea id="notesInput" rows="4" placeholder="Trade notes..."></textarea>
       </div>
-
-      <input type="file" id="fileInput" accept="image/*" multiple>
-      <div class="img-preview" id="imgPreview"></div>
-
-      <div class="btn-row">
-        <button class="btn-save" id="saveBtn">Save Entry</button>
-        <button class="btn-del" id="delBtn">Delete Entry</button>
+      <div>
+        <button class="btn-save" id="saveEntry">Save Entry</button>
+        <button class="btn-del" id="delEntry">Delete Entry</button>
       </div>
     </div>
-    <div id="emptyWrap" class="empty-state">Select date from calendar to add journal entry</div>
   </div>
 </div>
 
 <div id="pdf-month-data"></div>
 
 <script>
-const { jsPDF } = window.jspdf;
-const STORAGE_KEY = "tradingJournalDataV2";
-let journalData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-let currentDate = new Date();
-let selectedDateStr = null;
-let activeTags = [];
+const STORAGE_KEY = "tradingJournalData";
+let currentYear=new Date().getFullYear();
+let currentMonth=new Date().getMonth();
+let selectedDate=null;
+let activeTags=[];
 
-// Calendar Render
+function getAllRecords(){
+  const raw=localStorage.getItem(STORAGE_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+function saveAllRecords(arr){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(arr));
+}
+function getDayRecord(y,m,d){
+  return getAllRecords().filter(r=>r.y===y&&r.m===m&&r.d===d);
+}
+
+// render calendar
 function renderCalendar(){
-  const y = currentDate.getFullYear();
-  const m = currentDate.getMonth();
-  document.getElementById("monthLabel").textContent = new Date(y,m).toLocaleDateString('en-US',{month:'long',year:'numeric'})
-  const grid = document.getElementById("calGrid");
-  grid.innerHTML = "";
-  const firstDay = new Date(y,m,1).getDay();
-  const daysTotal = new Date(y,m+1,0).getDate();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const grid=document.getElementById("calGrid");
+  const label=document.getElementById("monthLabel");
+  const first=new Date(currentYear,currentMonth,1);
+  const last=new Date(currentYear,currentMonth+1,0);
+  label.textContent = first.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  grid.innerHTML="";
+  const startDow=first.getDay();
+  const totalDays=last.getDate();
 
-  for(let i=0;i<firstDay;i++){
-    const el = document.createElement('div');
-    el.className="cal-day empty";
-    grid.appendChild(el);
+  // empty leading
+  for(let i=0;i<startDow;i++){
+    grid.innerHTML += `<div class="cal-day empty"></div>`;
   }
 
-  for(let d=1;d<=daysTotal;d++){
-    const dateObj = new Date(y,m,d);
-    const datestr = dateObj.toISOString().split('T')[0];
-    const dayEl = document.createElement('div');
-    dayEl.className="cal-day";
-    dayEl.textContent = d;
-    if(datestr === todayStr) dayEl.classList.add("today");
-
-    const rec = journalData[datestr];
-    if(rec){
-      const pnl = Number(rec.pnl||0);
-      if(pnl>0) dayEl.classList.add("win-day");
-      else if(pnl<0) dayEl.classList.add("loss-day");
+  const todayObj=new Date();
+  for(let d=1;d<=totalDays;d++){
+    const isToday = (todayObj.getFullYear()===currentYear && todayObj.getMonth()===currentMonth && todayObj.getDate()===d);
+    const isCurrentMonth=true;
+    const dayRecord = getDayRecord(currentYear,currentMonth,d);
+    let pnlText="-";
+    let pnlClass="";
+    if(dayRecord.length>0){
+      const sumPnl = dayRecord.reduce((s,r)=>s+Number(r.pnl),0);
+      pnlText = (sumPnl>0 ? "+":"") + sumPnl;
+      pnlClass = sumPnl>0 ? "profit" : "loss";
     }
-    dayEl.dataset.date = datestr;
-    dayEl.onclick = ()=>openDay(datestr);
-    grid.appendChild(dayEl);
+
+    grid.innerHTML += `
+    <div class="cal-day ${isToday?'today':''}" data-y="${currentYear}" data-m="${currentMonth}" data-d="${d}">
+      <div class="day-num">${d}</div>
+      <div class="day-pnl ${pnlClass}">${pnlText}</div>
+    </div>`;
   }
-  calcStats();
-}
 
-// Open selected day
-function openDay(datestr){
-  selectedDateStr = datestr;
-  document.getElementById("selectedDate").textContent = new Date(datestr).toLocaleDateString();
-  document.getElementById("emptyWrap").style.display="none";
-  document.getElementById("entryForm").style.display="block";
-
-  const record = journalData[datestr] || {pnl:"",tags:[],note:"",images:[]};
-  document.getElementById("pnlInput").value = record.pnl ?? "";
-  document.getElementById("noteInput").value = record.note || "";
-  activeTags = record.tags || [];
-
-  document.querySelectorAll(".tag-btn").forEach(btn=>{
-    if(activeTags.includes(btn.dataset.val)) btn.classList.add("active");
-    else btn.classList.remove("active");
+  // click day
+  document.querySelectorAll(".cal-day:not(.empty)").forEach(el=>{
+    el.onclick=()=>{
+      selectedDate={
+        y:Number(el.dataset.y),
+        m:Number(el.dataset.m),
+        d:Number(el.dataset.d)
+      };
+      document.getElementById("selectedDate").textContent = new Date(selectedDate.y,selectedDate.m,selectedDate.d).toLocaleDateString();
+      fillFormByDate();
+    }
   })
-  renderImagePreview(record.images);
+  updateStats();
 }
 
-function renderImagePreview(imgArray){
-  const wrap = document.getElementById("imgPreview");
-  wrap.innerHTML="";
-  imgArray.forEach(b64=>{
-    const img = document.createElement('img');
-    img.src = b64;
-    wrap.appendChild(img);
-  })
+function fillFormByDate(){
+  const recs=getDayRecord(selectedDate.y,selectedDate.m,selectedDate.d);
+  if(recs.length>0){
+    const r=recs[0];
+    document.getElementById("pnlInput").value=r.pnl;
+    document.getElementById("notesInput").value=r.notes||"";
+    activeTags=r.tags||[];
+    document.querySelectorAll(".tag-btn").forEach(b=>{
+      b.classList.toggle("active",activeTags.includes(b.dataset.val));
+    })
+  }else{
+    clearForm();
+  }
+}
+function clearForm(){
+  document.getElementById("pnlInput").value="";
+  document.getElementById("notesInput").value="";
+  activeTags=[];
+  document.querySelectorAll(".tag-btn").forEach(b=>b.classList.remove("active"));
 }
 
-// Tag toggle
+// save entry
+document.getElementById("saveEntry").onclick=()=>{
+  if(!selectedDate){alert("Pick date on calendar first");return;}
+  const pnlVal = parseFloat(document.getElementById("pnlInput").value||0);
+  const notesVal = document.getElementById("notesInput").value;
+  let all = getAllRecords();
+  // remove old for same day (single‑entry per‑day)
+  all = all.filter(x=>!(x.y===selectedDate.y&&x.m===selectedDate.m&&x.d===selectedDate.d));
+  all.push({
+    y:selectedDate.y,
+    m:selectedDate.m,
+    d:selectedDate.d,
+    pnl:pnlVal,
+    tags:[...activeTags],
+    notes:notesVal
+  });
+  saveAllRecords(all);
+  renderCalendar();
+}
+
+document.getElementById("delEntry").onclick=()=>{
+  if(!selectedDate){return;}
+  let all=getAllRecords();
+  all=all.filter(x=>!(x.y===selectedDate.y&&x.m===selectedDate.m&&x.d===selectedDate.d));
+  saveAllRecords(all);
+  clearForm();
+  renderCalendar();
+}
+
+// tag buttons
 document.querySelectorAll(".tag-btn").forEach(btn=>{
-  btn.onclick = ()=>{
-    const val = btn.dataset.val;
-    if(activeTags.includes(val)){
-      activeTags = activeTags.filter(t=>t!==val);
+  btn.onclick=()=>{
+    const v=btn.dataset.val;
+    if(activeTags.includes(v)){
+      activeTags=activeTags.filter(t=>t!==v);
       btn.classList.remove("active");
     }else{
-      activeTags.push(val);
+      activeTags.push(v);
       btn.classList.add("active");
     }
   }
 })
 
-// Image upload
-document.getElementById("fileInput").addEventListener('change',async function(e){
-  const files = Array.from(e.target.files);
-  if(!selectedDateStr) return;
-  const rec = journalData[selectedDateStr] || {pnl:0,tags:[],note:"",images:[]};
-  for(const f of files){
-    const base64 = await readFileAsBase64(f);
-    rec.images.push(base64);
-  }
-  journalData[selectedDateStr]=rec;
-  saveLocal();
-  renderImagePreview(rec.images);
-  this.value="";
-})
-
-function readFileAsBase64(file){
-  return new Promise(resolve=>{
-    const r = new FileReader();
-    r.onload=ev=>resolve(ev.target.result);
-    r.readAsDataURL(file);
-  })
-}
-
-// Save
-document.getElementById("saveBtn").onclick = ()=>{
-  if(!selectedDateStr) return;
-  const pnlVal = document.getElementById("pnlInput").value;
-  const noteVal = document.getElementById("noteInput").value.trim();
-  const oldRec = journalData[selectedDateStr] || {images:[]};
-
-  journalData[selectedDateStr] = {
-    pnl:pnlVal,
-    tags:[...activeTags],
-    note:noteVal,
-    images:oldRec.images
-  };
-  saveLocal();
-  alert("Entry Saved!");
-}
-
-// Delete
-document.getElementById("delBtn").onclick=()=>{
-  if(!selectedDateStr) return;
-  if(!confirm("Delete all data for this date (P&L, tags, note, photos)?")) return;
-  delete journalData[selectedDateStr];
-  saveLocal();
-  document.getElementById("pnlInput").value="";
-  document.getElementById("noteInput").value="";
-  document.getElementById("imgPreview").innerHTML="";
-  activeTags=[];
-  document.querySelectorAll(".tag-btn").forEach(b=>b.classList.remove("active"));
-}
-
-function saveLocal(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(journalData));
-  renderCalendar();
-}
-
-// Calculate overall stats
-function calcStats(){
-  let totalTrades=0;
-  let totalPnl=0;
-  let winCount=0;
-  let winDays=0;
-  let lossDays=0;
-
-  Object.values(journalData).forEach(entry=>{
-    const p = Number(entry.pnl||0);
-    if(!isNaN(p)){
-      totalTrades +=1;
-      totalPnl += p;
-      if(p>0){ winCount++; winDays++; }
-      else if(p<0){ lossDays++; }
-    }
-  })
-  const winRate = totalTrades>0 ? ((winCount/totalTrades)*100).toFixed(1) : 0;
-
-  document.getElementById("statTotal").innerText = totalTrades;
-  document.getElementById("statPnl").innerText = totalPnl.toFixed(2);
-  document.getElementById("statWinRate").innerText = winRate+"%";
-  document.getElementById("statWinDays").innerText = winDays;
-  document.getElementById("statLossDays").innerText = lossDays;
-}
-
-// Month navigation
+// month nav
 document.getElementById("prevMonth").onclick=()=>{
-  currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth()-1, 1);
+  currentMonth--;
+  if(currentMonth<0){currentMonth=11;currentYear--;}
   renderCalendar();
 }
 document.getElementById("nextMonth").onclick=()=>{
-  currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 1);
+  currentMonth++;
+  if(currentMonth>11){currentMonth=0;currentYear++;}
   renderCalendar();
 }
 
-// Export current Month PDF
-document.getElementById("exportMonthPdf").onclick = async function(){
-  const y = currentDate.getFullYear();
-  const m = currentDate.getMonth();
-  const monthName = new Date(y,m).toLocaleDateString('en-US',{month:'long',year:'numeric'});
-  const wrap = document.getElementById("pdf-month-data");
-  wrap.innerHTML = `<h2>Trading Journal — ${monthName}</h2>`;
+function updateStats(){
+  const all=getAllRecords();
+  const totalTrades=all.length;
+  const totalPnl=all.reduce((s,r)=>s+Number(r.pnl),0);
+  const winTrades=all.filter(x=>Number(x.pnl)>0).length;
+  const winRate = totalTrades>0 ? ((winTrades/totalTrades)*100).toFixed(1):0;
 
-  const daysTotal = new Date(y,m+1,0).getDate();
-  let hasData = false;
-  for(let d=1;d<=daysTotal;d++){
-    const ds = new Date(y,m,d).toISOString().split('T')[0];
-    const entry = journalData[ds];
-    if(!entry) continue;
-    hasData=true;
-    const div = document.createElement('div');
+  // unique days
+  const daySet=new Set();
+  const winDaySet=new Set();
+  const lossDaySet=new Set();
+  all.forEach(r=>{
+    const key=`${r.y}-${r.m}-${r.d}`;
+    daySet.add(key);
+    if(Number(r.pnl)>0) winDaySet.add(key);
+    if(Number(r.pnl)<0) lossDaySet.add(key);
+  })
+
+  document.getElementById("statTotalTrades").innerText=totalTrades;
+  document.getElementById("statTotalPnl").innerText=totalPnl.toFixed(2);
+  document.getElementById("statWinRate").innerText=winRate+"%";
+  document.getElementById("statWinDays").innerText=winDaySet.size;
+  document.getElementById("statLossDays").innerText=lossDaySet.size;
+}
+
+// PDF export month
+document.getElementById("exportMonthPdf").onclick=async ()=>{
+  const container=document.getElementById("pdf-month-data");
+  container.innerHTML="";
+  const dayCount = new Date(currentYear,currentMonth+1,0).getDate();
+  for(let d=1;d<=dayCount;d++){
+    const dr = getDayRecord(currentYear,currentMonth,d);
+    const div=document.createElement("div");
     div.className="pdf-day-item";
-    div.innerHTML = `
-      <div><strong>Date: ${ds}</strong></div>
-      <div>P&L: ${entry.pnl??"0"}</div>
-      <div>Tags: ${(entry.tags||[]).join(", ")||"—"}</div>
-      <div>Note:<br/>${(entry.note||"").replace(/\n/g,"<br/>")||"—"}</div>
-    `;
-    wrap.appendChild(div);
+    div.innerHTML=`<h4>${currentYear}-${currentMonth+1}-${d}</h4>`;
+    if(dr.length>0){
+      dr.forEach(r=>{
+        div.innerHTML += `<div>P&L: ${r.pnl}</div><div>Tags: ${(r.tags||[]).join(", ")}</div><div>Notes: ${r.notes||""}</div>`;
+      })
+    }else{
+      div.innerHTML += `<div>No trade</div>`;
+    }
+    container.appendChild(div);
   }
-  if(!hasData){
-    alert("This month has NO trading journal records.");
-    return;
-  }
-  const pdf = new jsPDF('p','mm','a4');
-  const canvas = await html2canvas(wrap,{scale:1.5});
-  const imgData = canvas.toDataURL('image/jpeg',0.95);
-  const imgW = 210;
-  const imgH = canvas.height * imgW / canvas.width;
-  pdf.addImage(imgData, 'JPEG',0,0,imgW,imgH);
-  pdf.save(`TradingJournal_${y}_${(m+1).toString().padStart(2,'0')}.pdf`);
+  await html2pdf().set({margin:8,filename:`Journal_${currentYear}_${currentMonth+1}.pdf`}).from(container).save();
 }
 
 renderCalendar();
